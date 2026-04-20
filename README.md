@@ -1,4 +1,4 @@
-# Log Analyzer for L2 RCA
+﻿# Log Analyzer for L2 RCA
 
 Dark-themed local RCA tool for L2, Technical Support, SRE, and Incident Response workflows.
 
