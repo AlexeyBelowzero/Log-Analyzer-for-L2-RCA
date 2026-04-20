@@ -1,0 +1,180 @@
+rules:
+  - name: Gateway error
+    pattern: "\\b(502|503|504)\\b|bad gateway|service unavailable|gateway timeout|upstream prematurely closed connection"
+    classification: GATEWAY_ERROR
+    insight: Gateway or reverse proxy errors detected
+    possible_causes:
+      - Upstream service is unavailable or has no ready instances
+      - Ingress, Nginx, or load balancer cannot connect to upstream
+      - Upstream response exceeded proxy timeout
+    actions:
+      - Check ingress, Nginx, or load balancer error logs for the same timestamp
+      - Verify upstream pod readiness, service endpoints, and health checks
+      - Compare gateway errors with upstream application logs
+      - Check recent deployments and traffic spikes for the affected service
+
+  - name: Connection refused
+    pattern: "connection refused|connect\\(\\) failed|connection reset|no route to host|network is unreachable|connection timed out"
+    classification: NETWORK_ERROR
+    insight: Upstream connectivity failures detected
+    possible_causes:
+      - Upstream service is down or has no healthy endpoints
+      - Wrong host or port in service configuration
+      - Firewall, security group, or network policy is blocking traffic
+    actions:
+      - Check service health and endpoint readiness in Kubernetes or the service registry
+      - Validate configured upstream host and port
+      - Test connectivity from the affected host or pod with curl, nc, or Test-NetConnection
+      - Review recent network policy, firewall, or deployment changes
+
+  - name: DNS failure
+    pattern: "dns|nxdomain|temporary failure in name resolution|name or service not known|could not resolve host|lookup .* no such host"
+    classification: DNS_ERROR
+    insight: DNS resolution failures detected
+    possible_causes:
+      - DNS service degradation
+      - Incorrect service name or domain suffix
+      - Missing Kubernetes Service or broken CoreDNS configuration
+    actions:
+      - Resolve the hostname from the affected node or pod
+      - Check CoreDNS or DNS resolver health
+      - Verify service discovery records and namespace usage
+      - Compare failures across nodes to separate local resolver issues from global DNS issues
+
+  - name: Timeout
+    pattern: "timeout|timed out|deadline exceeded|upstream timed out|read timed out|context deadline|i/o timeout"
+    classification: TIMEOUT
+    insight: Timeout errors detected across log events
+    possible_causes:
+      - Slow upstream service or database
+      - Network latency or packet loss
+      - Timeout threshold is too low for current load
+    actions:
+      - Check latency panels in Grafana for the affected dependency
+      - Compare error start time with deploys, traffic spikes, and dependency alerts
+      - Review application timeout and retry settings
+      - Inspect slow queries or external API response times
+
+  - name: Resource exhaustion
+    pattern: "oomkilled|out of memory|memory limit|cannot allocate memory|disk pressure|disk is full|no space left on device|too many open files|inode"
+    classification: RESOURCE_EXHAUSTION
+    insight: Resource exhaustion symptoms detected
+    possible_causes:
+      - Memory leak or traffic spike
+      - Container memory limit is too low
+      - Disk, inode, file descriptor, or ephemeral storage exhaustion
+    actions:
+      - Check memory, CPU, disk, inode, and restart graphs in Grafana
+      - Inspect pod events and previous container logs
+      - Review recent releases and workload changes
+      - Consider temporary capacity increase after confirming impact
+
+  - name: Application exception
+    pattern: "nullpointerexception|typeerror|referenceerror|stack trace|unhandled exception|panic:|segmentation fault|runtimeerror|valueerror|indexerror"
+    classification: APPLICATION_ERROR
+    insight: Application exceptions detected
+    possible_causes:
+      - Defect introduced by a recent deployment
+      - Unexpected input or API response schema
+      - Missing validation or null handling in application code
+    actions:
+      - Find the first occurrence and correlate it with deployments
+      - Extract stack trace, request ID, and affected endpoint
+      - Compare failing and successful requests for payload differences
+      - Check feature flags or configuration changes around the start time
+
+  - name: Database error
+    pattern: "deadlock|connection pool exhausted|too many connections|sql timeout|database unavailable|could not obtain connection|lock wait timeout|duplicate key|violates foreign key"
+    classification: DATABASE_ERROR
+    insight: Database access errors detected
+    possible_causes:
+      - Database saturation or connection pool exhaustion
+      - Long-running, blocked, or deadlocked queries
+      - Network issue between application and database
+    actions:
+      - Check database connection pool and active sessions
+      - Inspect slow query, lock, and deadlock logs
+      - Review recent schema, index, or query changes
+      - Verify database host connectivity from the application tier
+
+  - name: Kubernetes workload failure
+    pattern: "crashloopbackoff|imagepullbackoff|errimagepull|readiness probe failed|liveness probe failed|back-off restarting failed container|failedscheduling"
+    classification: KUBERNETES_ERROR
+    insight: Kubernetes workload health errors detected
+    possible_causes:
+      - Container exits during startup
+      - Image registry or image tag issue
+      - Probe configuration does not match application readiness
+      - Pod cannot be scheduled due to resource or node constraints
+    actions:
+      - Run kubectl describe pod for the affected workload
+      - Check current and previous container logs
+      - Verify image tag, registry access, and pull secrets
+      - Review liveness, readiness, resources, and node scheduling events
+
+  - name: Authentication or authorization error
+    pattern: "unauthorized|forbidden|permission denied|access denied|invalid token|jwt expired|authentication failed|authorization failed|401|403"
+    classification: AUTH_ERROR
+    insight: Authentication or authorization failures detected
+    possible_causes:
+      - Expired or invalid token
+      - Wrong service account, role, or permission mapping
+      - Identity provider or SSO degradation
+    actions:
+      - Check token expiration, issuer, audience, and scopes
+      - Verify RBAC, service account, and permission changes
+      - Compare failures by user, service, tenant, and endpoint
+
+  - name: TLS certificate error
+    pattern: "certificate|x509|tls handshake|ssl|handshake failure|certificate has expired|unknown authority"
+    classification: TLS_CERTIFICATE_ERROR
+    insight: TLS or certificate validation errors detected
+    possible_causes:
+      - Expired certificate
+      - Missing intermediate CA certificate
+      - Wrong hostname or SAN mismatch
+      - Client trust store does not include issuing CA
+    actions:
+      - Check certificate expiration and SAN values
+      - Verify trust chain from the affected host or container
+      - Compare errors with recent certificate rotations
+      - Test endpoint with openssl s_client or curl -v
+
+  - name: Rate limit or throttling
+    pattern: "rate limit|ratelimit|too many requests|\\b429\\b|throttl"
+    classification: RATE_LIMIT
+    insight: Rate limiting or throttling detected
+    possible_causes:
+      - Client request volume exceeds configured limits
+      - Retry storm after upstream degradation
+      - Third-party API quota exhausted
+    actions:
+      - Check request rate, retry rate, and client distribution
+      - Verify rate limit configuration and quota dashboards
+      - Look for retry loops or missing backoff
+
+  - name: Message broker error
+    pattern: "kafka|rabbitmq|amqp|consumer lag|offset out of range|rebalance|broker unavailable|nack|queue full"
+    classification: MESSAGE_BROKER_ERROR
+    insight: Message broker or queue processing errors detected
+    possible_causes:
+      - Broker unavailable or partition leader issue
+      - Consumer lag due to slow processing
+      - Queue capacity or backpressure
+    actions:
+      - Check broker health, partition leadership, and consumer lag
+      - Inspect producer and consumer error rates
+      - Verify queue depth and processing latency
+
+  - name: Cache error
+    pattern: "redis|memcached|cache unavailable|cache timeout|moved \\d+|noauth authentication required|max number of clients reached"
+    classification: CACHE_ERROR
+    insight: Cache layer errors detected
+    possible_causes:
+      - Redis or Memcached is unavailable
+      - Authentication or ACL issue
+      - Cluster redirection or slot migration problem
+    actions:
+      - Check cache node health, memory, connections, and evictions
+      - Verify credentials and ACL changes
+      - Check cluster state and client redirect handling

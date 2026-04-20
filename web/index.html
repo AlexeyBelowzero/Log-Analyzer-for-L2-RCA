@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log Analyzer for L2 RCA</title>
+  <link rel="preconnect" href="https://images.unsplash.com">
+  <link rel="stylesheet" href="./static/css/app.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="title-block">
+        <p class="eyebrow">RCA Analyzer</p>
+        <h1>Log Analyzer for L2 RCA</h1>
+        <p class="subtitle">Paste mixed logs from Kibana, Loki, containers, web servers, databases, or application runtimes and get grouped failure patterns with RCA actions.</p>
+      </div>
+      <img
+        class="topbar-image"
+        src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=720&q=70"
+        alt="Server racks"
+      >
+    </header>
+
+    <section class="workspace">
+      <div class="input-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Input</p>
+            <h2>Raw logs</h2>
+          </div>
+          <p class="hint">Sample file: <code>samples/rca_mixed_test_logs.log</code></p>
+        </div>
+
+        <label class="field-label" for="logInput">Paste logs</label>
+        <textarea id="logInput" class="log-input" spellcheck="false" placeholder="Paste JSON, ECS, Loki logfmt, Docker JSON, Kubernetes CRI, Nginx, Apache, PostgreSQL, Java, Python, Redis, MySQL, syslog, or plain text logs here"></textarea>
+
+        <div class="toolbar">
+          <button id="analyzeButton" class="primary-button" type="button">Analyze logs</button>
+          <button id="clearButton" class="secondary-button" type="button">Clear</button>
+          <label class="compact-field" for="maxGroups">
+            Top groups
+            <input id="maxGroups" type="number" min="1" max="50" value="12">
+          </label>
+        </div>
+
+        <div class="format-strip" aria-label="Supported log formats">
+          <span>JSON/ECS</span>
+          <span>Loki logfmt</span>
+          <span>Docker JSON</span>
+          <span>Kubernetes CRI</span>
+          <span>Nginx/Apache</span>
+          <span>PostgreSQL</span>
+          <span>Java/Python</span>
+          <span>syslog</span>
+        </div>
+      </div>
+
+      <div class="output-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Output</p>
+            <h2>RCA result</h2>
+          </div>
+          <div id="analysisStatus" class="status-line" role="status">Waiting for logs.</div>
+        </div>
+        <div id="analysisResults" class="results-area" aria-live="polite">
+          <div class="empty-state">
+            <h3>No analysis yet</h3>
+            <p>Paste production-like logs and run analysis. The result will show source breakdown, dominant issue, grouped patterns, examples, and recommended L2 actions.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./static/js/app.js"></script>
+</body>
+</html>
