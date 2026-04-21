@@ -29,6 +29,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -85,6 +86,38 @@ textarea {
   border: 1px solid var(--border);
 }
 
+.tab-nav {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tab-button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.tab-button.active {
+  background: var(--surface);
+  color: var(--text);
+  border-color: rgba(47, 129, 247, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(47, 129, 247, 0.15);
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(420px, 0.95fr) minmax(0, 1.25fr);
@@ -129,7 +162,8 @@ textarea {
   font-weight: 700;
 }
 
-.log-input {
+.log-input,
+.text-output {
   width: 100%;
   min-height: 590px;
   resize: vertical;
@@ -144,8 +178,14 @@ textarea {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 
+.text-output {
+  min-height: 340px;
+}
+
 .log-input:focus,
-.compact-field input:focus {
+.text-output:focus,
+.compact-field input:focus,
+.compact-select:focus {
   outline: 3px solid rgba(47, 129, 247, 0.25);
   border-color: var(--accent);
 }
@@ -201,13 +241,28 @@ textarea {
   font-weight: 700;
 }
 
-.compact-field input {
-  width: 72px;
+.compact-field input,
+.compact-select {
+  width: 92px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text);
   padding: 8px;
+}
+
+.checkbox-field {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.checkbox-field input {
+  width: 16px;
+  height: 16px;
 }
 
 .format-strip {
@@ -256,7 +311,8 @@ textarea {
 .source-panel,
 .group-panel,
 .insight-panel,
-.empty-state {
+.empty-state,
+.output-block {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -283,7 +339,8 @@ textarea {
 .source-panel,
 .group-panel,
 .insight-panel,
-.empty-state {
+.empty-state,
+.output-block {
   padding: 15px;
 }
 
@@ -307,7 +364,8 @@ textarea {
 }
 
 .source-row,
-.badge-row {
+.badge-row,
+.inline-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -348,9 +406,21 @@ textarea {
 }
 
 .group-list,
-.insight-list {
+.insight-list,
+.example-grid {
   display: grid;
   gap: 12px;
+}
+
+.example-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.example-panel {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
 }
 
 .examples {
@@ -367,14 +437,21 @@ textarea {
   margin-top: 8px;
 }
 
+.mini-label,
 .insight-panel h4 {
-  margin: 14px 0 6px;
+  margin: 10px 0 6px;
   color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .insight-panel ul {
   margin: 0;
   padding-left: 20px;
+}
+
+.compact-button {
+  min-height: 34px;
+  padding: 6px 12px;
 }
 
 .muted,
@@ -392,7 +469,8 @@ textarea {
     height: 160px;
   }
 
-  .summary-grid {
+  .summary-grid,
+  .example-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -417,17 +495,20 @@ textarea {
   }
 
   .section-heading,
-  .panel-header {
+  .panel-header,
+  .tab-nav {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .summary-grid {
+  .summary-grid,
+  .example-grid {
     grid-template-columns: 1fr;
   }
 
   .primary-button,
-  .secondary-button {
+  .secondary-button,
+  .tab-button {
     width: 100%;
   }
 }

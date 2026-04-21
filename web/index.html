@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Log Analyzer for L2 RCA</title>
+  <title>L2 Incident Workbench</title>
   <link rel="preconnect" href="https://images.unsplash.com">
   <link rel="stylesheet" href="./static/css/app.css">
 </head>
@@ -11,9 +11,9 @@
   <main class="app-shell">
     <header class="topbar">
       <div class="title-block">
-        <p class="eyebrow">RCA Analyzer</p>
-        <h1>Log Analyzer for L2 RCA</h1>
-        <p class="subtitle">Paste mixed logs from Kibana, Loki, containers, web servers, databases, or application runtimes and get grouped failure patterns with RCA actions.</p>
+        <p class="eyebrow">L2 Incident Workbench</p>
+        <h1>RCA Analyzer and Log Sanitizer</h1>
+        <p class="subtitle">Analyze mixed production logs for root cause patterns, or sanitize sensitive data before sharing logs with vendors, AI tools, or incident channels.</p>
       </div>
       <img
         class="topbar-image"
@@ -22,55 +22,122 @@
       >
     </header>
 
-    <section class="workspace">
-      <div class="input-panel">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Input</p>
-            <h2>Raw logs</h2>
+    <nav class="tab-nav" aria-label="Workbench modes">
+      <button class="tab-button active" type="button" data-tab="analyzerTab">RCA Analyzer</button>
+      <button class="tab-button" type="button" data-tab="sanitizerTab">Log Sanitizer</button>
+    </nav>
+
+    <section id="analyzerTab" class="tab-panel active">
+      <section class="workspace">
+        <div class="input-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Input</p>
+              <h2>Raw logs</h2>
+            </div>
+            <p class="hint">Sample file: <code>samples/rca_mixed_test_logs.log</code></p>
           </div>
-          <p class="hint">Sample file: <code>samples/rca_mixed_test_logs.log</code></p>
-        </div>
 
-        <label class="field-label" for="logInput">Paste logs</label>
-        <textarea id="logInput" class="log-input" spellcheck="false" placeholder="Paste JSON, ECS, Loki logfmt, Docker JSON, Kubernetes CRI, Nginx, Apache, PostgreSQL, Java, Python, Redis, MySQL, syslog, or plain text logs here"></textarea>
+          <label class="field-label" for="logInput">Paste logs</label>
+          <textarea id="logInput" class="log-input" spellcheck="false" placeholder="Paste JSON, ECS, Loki logfmt, Docker JSON, Kubernetes CRI, Nginx, Apache, PostgreSQL, Java, Python, Redis, MySQL, syslog, or plain text logs here"></textarea>
 
-        <div class="toolbar">
-          <button id="analyzeButton" class="primary-button" type="button">Analyze logs</button>
-          <button id="clearButton" class="secondary-button" type="button">Clear</button>
-          <label class="compact-field" for="maxGroups">
-            Top groups
-            <input id="maxGroups" type="number" min="1" max="50" value="12">
-          </label>
-        </div>
-
-        <div class="format-strip" aria-label="Supported log formats">
-          <span>JSON/ECS</span>
-          <span>Loki logfmt</span>
-          <span>Docker JSON</span>
-          <span>Kubernetes CRI</span>
-          <span>Nginx/Apache</span>
-          <span>PostgreSQL</span>
-          <span>Java/Python</span>
-          <span>syslog</span>
-        </div>
-      </div>
-
-      <div class="output-panel">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Output</p>
-            <h2>RCA result</h2>
+          <div class="toolbar">
+            <button id="analyzeButton" class="primary-button" type="button">Analyze logs</button>
+            <button id="clearAnalyzeButton" class="secondary-button" type="button">Clear</button>
+            <label class="compact-field" for="maxGroups">
+              Top groups
+              <input id="maxGroups" type="number" min="1" max="50" value="12">
+            </label>
           </div>
-          <div id="analysisStatus" class="status-line" role="status">Waiting for logs.</div>
-        </div>
-        <div id="analysisResults" class="results-area" aria-live="polite">
-          <div class="empty-state">
-            <h3>No analysis yet</h3>
-            <p>Paste production-like logs and run analysis. The result will show source breakdown, dominant issue, grouped patterns, examples, and recommended L2 actions.</p>
+
+          <div class="format-strip" aria-label="Supported RCA log formats">
+            <span>JSON/ECS</span>
+            <span>Loki logfmt</span>
+            <span>Docker JSON</span>
+            <span>Kubernetes CRI</span>
+            <span>Nginx/Apache</span>
+            <span>PostgreSQL</span>
+            <span>Java/Python</span>
+            <span>syslog</span>
           </div>
         </div>
-      </div>
+
+        <div class="output-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Output</p>
+              <h2>RCA result</h2>
+            </div>
+            <div id="analysisStatus" class="status-line" role="status">Waiting for logs.</div>
+          </div>
+          <div id="analysisResults" class="results-area" aria-live="polite">
+            <div class="empty-state">
+              <h3>No analysis yet</h3>
+              <p>Paste production-like logs and run analysis. The result will show source breakdown, dominant issue, grouped patterns, examples, and recommended L2 actions.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section id="sanitizerTab" class="tab-panel">
+      <section class="workspace">
+        <div class="input-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Input</p>
+              <h2>Sensitive logs</h2>
+            </div>
+            <p class="hint">Sample file: <code>samples/sanitizer_sensitive_test_logs.log</code></p>
+          </div>
+
+          <label class="field-label" for="sanitizeInput">Paste logs to sanitize</label>
+          <textarea id="sanitizeInput" class="log-input" spellcheck="false" placeholder="Paste logs that may contain emails, tokens, cookies, IPs, IDs, or other sensitive values here"></textarea>
+
+          <div class="toolbar">
+            <button id="sanitizeButton" class="primary-button" type="button">Sanitize logs</button>
+            <button id="clearSanitizeButton" class="secondary-button" type="button">Clear</button>
+            <label class="compact-field" for="sanitizeMode">
+              Mode
+              <select id="sanitizeMode" class="compact-select">
+                <option value="mask">mask</option>
+                <option value="hash">hash</option>
+              </select>
+            </label>
+            <label class="checkbox-field">
+              <input id="preserveCorrelation" type="checkbox" checked>
+              Preserve correlation in mask mode
+            </label>
+          </div>
+
+          <div class="format-strip" aria-label="Supported sanitizer detections">
+            <span>Email</span>
+            <span>Bearer token</span>
+            <span>Cookie</span>
+            <span>Password</span>
+            <span>API key</span>
+            <span>IP</span>
+            <span>Request ID</span>
+            <span>Credit card</span>
+          </div>
+        </div>
+
+        <div class="output-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Output</p>
+              <h2>Sanitized result</h2>
+            </div>
+            <div id="sanitizeStatus" class="status-line" role="status">Waiting for logs.</div>
+          </div>
+          <div id="sanitizeResults" class="results-area" aria-live="polite">
+            <div class="empty-state">
+              <h3>No sanitization yet</h3>
+              <p>Paste logs with possible secrets or PII. The result will show detections, replacements, and a share-safe version of the logs.</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </section>
   </main>
 

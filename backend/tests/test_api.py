@@ -40,6 +40,27 @@ def test_analyze_endpoint_rejects_empty_input() -> None:
     assert response.status_code == 422
 
 
+def test_sanitize_endpoint_returns_masked_output() -> None:
+    logs = '{"user_email":"alex@example.com","request_id":"req-123","authorization":"Bearer abc.def.ghi"}'
+
+    response = client.post(
+        "/api/sanitize",
+        json={"text": logs, "mode": "mask", "preserve_correlation": True},
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["summary"]["total_matches"] >= 3
+    assert "alex@example.com" not in payload["sanitized_text"]
+    assert payload["examples"]
+
+
+def test_sanitize_endpoint_rejects_empty_input() -> None:
+    response = client.post("/api/sanitize", json={"text": "  "})
+
+    assert response.status_code == 422
+
+
 def test_query_assistant_endpoint_was_removed() -> None:
     response = client.post("/api/queries", json={})
 

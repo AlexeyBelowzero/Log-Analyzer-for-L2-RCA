@@ -1,0 +1,6 @@
+{"timestamp":"2026-04-21T11:00:01Z","service":"auth-api","user_email":"alex@example.com","request_id":"req-1001","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abc.def"}
+level=error email="alex@example.com" request_id=req-1001 token=abcd1234xyz987
+client_ip=10.42.1.15 session_id=sess-778899 phone=+1 (202) 555-0101
+Cookie: sessionid=abc123; csrftoken=def456; logged_in=true
+password=supersecret upstream=https://internal.api.company.local/orders/12345
+{"customer_email":"maria@example.net","card_number":"4111 1111 1111 1111","client_id":"client-42"}

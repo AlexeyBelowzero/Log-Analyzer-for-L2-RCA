@@ -1,58 +1,83 @@
-﻿# Log Analyzer for L2 RCA
+# L2 Incident Workbench
 
-Dark-themed local RCA tool for L2, Technical Support, SRE, and Incident Response workflows.
+Local-first FastAPI tool for L2, Technical Support, SRE, and Incident Response workflows.
 
-The project focuses on one job: paste mixed production-like logs and get a concise RCA-oriented result:
+The workbench currently has two focused modes:
 
-- detected log source formats;
-- grouped failure patterns;
-- dominant issue;
-- rule-based classification;
-- examples for each group;
-- concrete L2 investigation actions.
+- `RCA Analyzer` for grouping failure patterns and generating root-cause hints from mixed logs.
+- `Log Sanitizer` for detecting and masking sensitive data before logs are shared with vendors, AI tools, incident channels, or tickets.
 
-The app is intentionally local-first and lightweight: **Python + FastAPI + static HTML/CSS/JS**, no Node.js build chain required.
+The project stays intentionally lightweight: Python, FastAPI, and static HTML/CSS/JS with no Node.js build chain required.
 
 ## Why This Project Exists
 
-During incidents, L2 engineers often receive log fragments from Kibana, Grafana Loki, container logs, SSH sessions, database logs, or application stack traces. The hard part is not only reading one line, but finding repeated failure patterns hidden behind dynamic values such as IP addresses, ports, request IDs, UUIDs, pod names, user IDs, and timestamps.
+During incidents, L2 engineers usually handle two painful tasks at the same time:
 
-This project demonstrates:
+- understand repeated failure patterns hidden inside noisy logs;
+- share log fragments safely without leaking secrets, PII, tokens, or internal infrastructure details.
+
+This project targets both workflows in one local tool:
 
 - broad log parsing;
 - multiline stack trace handling;
 - dynamic value normalization;
-- error deduplication;
-- YAML-based RCA classification;
-- practical recommended actions;
-- FastAPI API design;
-- automated tests.
+- error grouping and RCA classification;
+- rule-based investigation hints;
+- local log sanitization with correlation-preserving masking;
+- automated backend tests.
 
-## Supported Inputs
+## What The Workbench Does
 
-The analyzer accepts mixed logs in one paste:
+### RCA Analyzer
 
-- Elastic/Kibana-style JSON and ECS-like fields;
-- Grafana Loki JSON and logfmt-style lines;
+Accepts mixed logs from a single paste:
+
+- Elastic/Kibana JSON and ECS-like fields;
+- Grafana Loki JSON and logfmt;
 - Docker `json-file` logs;
 - Kubernetes CRI/container runtime logs;
 - Nginx and Apache access logs;
 - Nginx error logs;
-- syslog RFC3164/RFC5424-like lines;
-- PostgreSQL error logs with `DETAIL` and `STATEMENT` continuation lines;
-- MySQL error logs;
-- Redis logs;
+- syslog-like lines;
+- PostgreSQL, MySQL, and Redis logs;
 - Java/Spring logs and stack traces;
 - Python logs and tracebacks;
 - plain text fallback.
 
-The sample corpus is here:
+Returns:
 
-```text
-samples/rca_mixed_test_logs.log
-```
+- detected source formats;
+- grouped failure patterns;
+- dominant issue;
+- RCA insights;
+- recommended investigation actions.
 
-It is a safe synthetic corpus built around public log formats, not private production data.
+### Log Sanitizer
+
+Accepts pasted logs and produces a safe-to-share version.
+
+Current built-in detections include:
+
+- bearer tokens and authorization headers;
+- JWT-like tokens;
+- cookies;
+- passwords and secret fields;
+- API keys and access tokens;
+- email addresses;
+- phone numbers;
+- IPv4 addresses;
+- request, trace, span, session, correlation, user, and client IDs;
+- URL fields;
+- host and upstream fields;
+- credit-card-like values validated with Luhn checks.
+
+Supports:
+
+- `mask` mode;
+- `hash` mode;
+- correlation-preserving masking in `mask` mode;
+- examples of replacements;
+- direct handoff of sanitized logs into the RCA Analyzer UI.
 
 ## Project Structure
 
@@ -68,10 +93,14 @@ backend/
       classifier.py
       insights.py
       engine.py
+    sanitizer/
+      builtins.py
+      engine.py
     rules/rules.yaml
   tests/
 samples/
   rca_mixed_test_logs.log
+  sanitizer_sensitive_test_logs.log
 web/
   index.html
   static/css/app.css
@@ -102,7 +131,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
 ```
 
-## Run the App
+## Run The App
 
 ```powershell
 python -m uvicorn backend.app.main:app --reload
@@ -114,7 +143,12 @@ Open:
 http://127.0.0.1:8000
 ```
 
-The UI can also be opened directly from `web/index.html`, but the API still needs the backend running on `http://127.0.0.1:8000`.
+## Sample Files
+
+- RCA sample corpus: `samples/rca_mixed_test_logs.log`
+- sanitizer sample corpus: `samples/sanitizer_sensitive_test_logs.log`
+
+Both corpora are synthetic and safe. They are based on public log format references, not private production data.
 
 ## API
 
@@ -124,7 +158,7 @@ Health:
 GET /health
 ```
 
-Analyze logs:
+RCA analysis:
 
 ```http
 POST /api/analyze
@@ -140,27 +174,40 @@ Request:
 }
 ```
 
+Log sanitization:
+
+```http
+POST /api/sanitize
+```
+
+Request:
+
+```json
+{
+  "text": "raw pasted logs",
+  "mode": "mask",
+  "preserve_correlation": true
+}
+```
+
 Response:
 
 ```json
 {
   "summary": {
     "total_lines": 0,
-    "parsed_lines": 0,
-    "error_events": 0,
-    "unique_patterns": 0,
-    "dominant_issue": null,
-    "dominant_percentage": 0,
-    "source_types": {}
+    "transformed_lines": 0,
+    "total_matches": 0,
+    "categories": {}
   },
-  "groups": [],
-  "insights": []
+  "sanitized_text": "",
+  "examples": []
 }
 ```
 
 ## How It Works
 
-Pipeline:
+### RCA pipeline
 
 ```text
 raw logs
@@ -173,41 +220,18 @@ raw logs
   -> RCA insight generator
 ```
 
-The normalizer replaces values that should not create separate groups:
-
-- IPs and ports;
-- URLs and hostnames;
-- timestamps and dates;
-- UUIDs and long hex IDs;
-- request, trace, span, correlation, user, session, order, and client IDs;
-- long numeric IDs;
-- durations and sizes;
-- stack trace frames.
-
-## RCA Rules
-
-Rules are stored in:
+### Sanitizer pipeline
 
 ```text
-backend/app/rules/rules.yaml
+raw logs
+  -> JSON-aware sanitization
+  -> logfmt-aware sanitization
+  -> regex-based detection for plain text
+  -> optional correlation-preserving replacement
+  -> replacement report + safe-to-share text
 ```
 
-Current categories include:
-
-- `GATEWAY_ERROR`
-- `NETWORK_ERROR`
-- `DNS_ERROR`
-- `TIMEOUT`
-- `RESOURCE_EXHAUSTION`
-- `APPLICATION_ERROR`
-- `DATABASE_ERROR`
-- `KUBERNETES_ERROR`
-- `AUTH_ERROR`
-- `TLS_CERTIFICATE_ERROR`
-- `RATE_LIMIT`
-- `MESSAGE_BROKER_ERROR`
-- `CACHE_ERROR`
-- `UNKNOWN`
+The sanitizer preserves JSON structure when possible and supports deterministic replacements inside one sanitization run, so the same sensitive value can stay traceable as `<EMAIL:1>`, `<REQUEST_ID:2>`, and similar placeholders.
 
 ## Tests
 
@@ -217,23 +241,20 @@ Run:
 python -m pytest
 ```
 
-Current tests cover:
+Current coverage includes:
 
-- ECS-like JSON parsing;
-- Loki/logfmt parsing;
-- Docker JSON parsing;
-- Kubernetes CRI parsing;
-- Nginx/Apache access and Nginx error logs;
-- PostgreSQL, MySQL, Redis, syslog, Java, Python parsing;
+- mixed log parsing across common real-world formats;
 - multiline stack traces;
 - normalization and grouping;
 - YAML classification;
-- API validation;
-- sample corpus analysis.
+- sanitizer masking and hashing behavior;
+- correlation-preserving replacements;
+- JSON-safe sanitization;
+- API validation for both `/api/analyze` and `/api/sanitize`.
 
-## Reference Formats
+## Reference Formats And Product Inspiration
 
-The parser and sample corpus were shaped around public documentation for common log formats:
+Parser and sample corpora were shaped around public documentation for common log formats:
 
 - Elastic ECS log fields: https://www.elastic.co/docs/reference/ecs/ecs-log
 - Grafana Loki log queries and parsers: https://grafana.com/docs/loki/latest/query/log_queries/
@@ -241,22 +262,28 @@ The parser and sample corpus were shaped around public documentation for common 
 - Kubernetes logging architecture and CRI logging: https://kubernetes.io/docs/concepts/cluster-administration/logging/
 - Apache HTTP Server log files: https://httpd.apache.org/docs/2.4/en/logs.html
 - NGINX logging: https://docs.nginx.com/nginx/admin-guide/monitoring/logging/
-- PostgreSQL error reporting and logging: https://www.postgresql.org/docs/current/runtime-config-logging.html
+- PostgreSQL logging: https://www.postgresql.org/docs/current/runtime-config-logging.html
 - MySQL error log format: https://dev.mysql.com/doc/refman/en/error-log-format.html
+
+Related commercial workflow categories:
+
+- Datadog Sensitive Data Scanner: https://docs.datadoghq.com/security/sensitive_data_scanner/
+- Splunk anonymize and field filters: https://help.splunk.com/en/splunk-enterprise/get-started/get-data-in/9.1/configure-event-processing/anonymize-data
+- Cribl PII masking: https://docs.cribl.io/use-cases/usecase-pii/
 
 ## Portfolio Positioning
 
 Suggested interview description:
 
 ```text
-I built a FastAPI-based L2 RCA analyzer that accepts mixed logs from modern observability and infrastructure sources, normalizes dynamic values, groups repeated failures, classifies issues through YAML rules, and returns concrete investigation actions.
+I built a local-first L2 incident workbench with two practical workflows: mixed-log RCA analysis and safe log sanitization for vendor support, AI tooling, and incident communication.
 ```
 
 ## Next Iterations
 
-- File upload for `.log`, `.txt`, and `.jsonl`.
-- Timeline aggregation by minute.
-- Incident summary export.
-- User-editable RCA rules.
-- Dockerfile and docker-compose.
-- GitHub Actions for automated tests.
+- file upload for `.log`, `.txt`, and `.jsonl`;
+- export of sanitized reports and RCA summaries;
+- timeline aggregation by minute;
+- custom sanitizer rules from UI;
+- incident report generation;
+- GitHub Actions and UI smoke tests.

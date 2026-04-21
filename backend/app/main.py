@@ -8,7 +8,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.app.analyzer.engine import LogAnalyzer
-from backend.app.models import AnalyzeRequest, AnalyzeResponse
+from backend.app.models import AnalyzeRequest, AnalyzeResponse, SanitizeRequest, SanitizeResponse
+from backend.app.sanitizer.engine import SanitizerEngine
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -27,6 +28,7 @@ if (WEB_DIR / "static").exists():
     app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 
 analyzer = LogAnalyzer()
+sanitizer = SanitizerEngine()
 
 
 @app.get("/")
@@ -45,4 +47,13 @@ async def analyze_logs(request: AnalyzeRequest) -> AnalyzeResponse:
         text=request.text,
         source_type=request.source_type,
         max_groups=request.max_groups,
+    )
+
+
+@app.post("/api/sanitize", response_model=SanitizeResponse)
+async def sanitize_logs(request: SanitizeRequest) -> SanitizeResponse:
+    return sanitizer.sanitize(
+        text=request.text,
+        mode=request.mode,
+        preserve_correlation=request.preserve_correlation,
     )

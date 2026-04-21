@@ -78,3 +78,38 @@ class AnalyzeResponse(BaseModel):
     summary: AnalysisSummary
     groups: list[ErrorGroup] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
+
+
+SanitizeMode = Literal["mask", "hash"]
+
+
+class SanitizeRequest(BaseModel):
+    text: str = Field(..., max_length=2_000_000)
+    mode: SanitizeMode = "mask"
+    preserve_correlation: bool = True
+
+    @field_validator("text")
+    @classmethod
+    def sanitize_text_must_not_be_blank(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("Log text must not be empty.")
+        return value
+
+
+class SanitizationExample(BaseModel):
+    category: str
+    original_preview: str
+    replacement_preview: str
+
+
+class SanitizationSummary(BaseModel):
+    total_lines: int
+    transformed_lines: int
+    total_matches: int
+    categories: dict[str, int] = Field(default_factory=dict)
+
+
+class SanitizeResponse(BaseModel):
+    summary: SanitizationSummary
+    sanitized_text: str
+    examples: list[SanitizationExample] = Field(default_factory=list)

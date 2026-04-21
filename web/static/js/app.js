@@ -1,9 +1,18 @@
 const logInput = document.getElementById("logInput");
 const analyzeButton = document.getElementById("analyzeButton");
-const clearButton = document.getElementById("clearButton");
+const clearAnalyzeButton = document.getElementById("clearAnalyzeButton");
 const maxGroupsInput = document.getElementById("maxGroups");
 const analysisStatus = document.getElementById("analysisStatus");
 const analysisResults = document.getElementById("analysisResults");
+const sanitizeInput = document.getElementById("sanitizeInput");
+const sanitizeButton = document.getElementById("sanitizeButton");
+const clearSanitizeButton = document.getElementById("clearSanitizeButton");
+const sanitizeMode = document.getElementById("sanitizeMode");
+const preserveCorrelation = document.getElementById("preserveCorrelation");
+const sanitizeStatus = document.getElementById("sanitizeStatus");
+const sanitizeResults = document.getElementById("sanitizeResults");
+const tabButtons = document.querySelectorAll(".tab-button");
+const tabPanels = document.querySelectorAll(".tab-panel");
 const apiBaseUrl = window.location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
 
 function createElement(tag, className, text) {
@@ -23,11 +32,35 @@ function clear(node) {
   }
 }
 
+function switchTab(targetId) {
+  tabButtons.forEach((button) => button.classList.toggle("active", button.dataset.tab === targetId));
+  tabPanels.forEach((panel) => panel.classList.toggle("active", panel.id === targetId));
+}
+
+tabButtons.forEach((button) => {
+  button.addEventListener("click", () => switchTab(button.dataset.tab));
+});
+
 analyzeButton.addEventListener("click", analyzeLogs);
-clearButton.addEventListener("click", () => {
+clearAnalyzeButton.addEventListener("click", () => {
   logInput.value = "";
-  setStatus("Waiting for logs.", false);
-  renderEmptyState();
+  setStatus(analysisStatus, "Waiting for logs.", false);
+  renderEmptyState(
+    analysisResults,
+    "No analysis yet",
+    "Paste production-like logs and run analysis. The result will show source breakdown, dominant issue, grouped patterns, examples, and recommended L2 actions.",
+  );
+});
+
+sanitizeButton.addEventListener("click", sanitizeLogs);
+clearSanitizeButton.addEventListener("click", () => {
+  sanitizeInput.value = "";
+  setStatus(sanitizeStatus, "Waiting for logs.", false);
+  renderEmptyState(
+    sanitizeResults,
+    "No sanitization yet",
+    "Paste logs with possible secrets or PII. The result will show detections, replacements, and a share-safe version of the logs.",
+  );
 });
 
 logInput.addEventListener("keydown", (event) => {
@@ -37,14 +70,21 @@ logInput.addEventListener("keydown", (event) => {
   }
 });
 
+sanitizeInput.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    event.preventDefault();
+    sanitizeLogs();
+  }
+});
+
 async function analyzeLogs() {
   const text = logInput.value.trim();
   if (!text) {
-    setStatus("Paste logs before running analysis.", true);
+    setStatus(analysisStatus, "Paste logs before running analysis.", true);
     return;
   }
 
-  setStatus("Analyzing logs...", false);
+  setStatus(analysisStatus, "Analyzing logs...", false);
   analyzeButton.disabled = true;
   analyzeButton.textContent = "Analyzing...";
   clear(analysisResults);
@@ -64,19 +104,64 @@ async function analyzeLogs() {
       throw new Error(readApiError(payload));
     }
     renderAnalysis(payload);
-    setStatus("Analysis complete.", false);
+    setStatus(analysisStatus, "Analysis complete.", false);
   } catch (error) {
-    setStatus(error.message || "Analysis failed.", true);
-    renderEmptyState("Analysis failed", "Check that the FastAPI backend is running and the pasted payload is valid text.");
+    setStatus(analysisStatus, error.message || "Analysis failed.", true);
+    renderEmptyState(
+      analysisResults,
+      "Analysis failed",
+      "Check that the FastAPI backend is running and the pasted payload is valid text.",
+    );
   } finally {
     analyzeButton.disabled = false;
     analyzeButton.textContent = "Analyze logs";
   }
 }
 
+async function sanitizeLogs() {
+  const text = sanitizeInput.value.trim();
+  if (!text) {
+    setStatus(sanitizeStatus, "Paste logs before running sanitization.", true);
+    return;
+  }
+
+  setStatus(sanitizeStatus, "Sanitizing logs...", false);
+  sanitizeButton.disabled = true;
+  sanitizeButton.textContent = "Sanitizing...";
+  clear(sanitizeResults);
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/sanitize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        mode: sanitizeMode.value,
+        preserve_correlation: preserveCorrelation.checked,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(readApiError(payload));
+    }
+    renderSanitized(payload);
+    setStatus(sanitizeStatus, "Sanitization complete.", false);
+  } catch (error) {
+    setStatus(sanitizeStatus, error.message || "Sanitization failed.", true);
+    renderEmptyState(
+      sanitizeResults,
+      "Sanitization failed",
+      "Check that the FastAPI backend is running and the pasted payload is valid text.",
+    );
+  } finally {
+    sanitizeButton.disabled = false;
+    sanitizeButton.textContent = "Sanitize logs";
+  }
+}
+
 function renderAnalysis(payload) {
   clear(analysisResults);
-  analysisResults.appendChild(renderSummary(payload.summary));
+  analysisResults.appendChild(renderAnalysisSummary(payload.summary));
   analysisResults.appendChild(renderSourceBreakdown(payload.summary.source_types || {}));
 
   if (payload.summary.dominant_issue) {
@@ -106,7 +191,7 @@ function renderAnalysis(payload) {
   }
 }
 
-function renderSummary(summary) {
+function renderAnalysisSummary(summary) {
   const grid = createElement("section", "summary-grid");
   [
     ["Total lines", summary.total_lines],
@@ -182,23 +267,146 @@ function renderInsight(insight) {
   return panel;
 }
 
+function renderSanitized(payload) {
+  clear(sanitizeResults);
+  sanitizeResults.appendChild(renderSanitizationSummary(payload.summary));
+  sanitizeResults.appendChild(renderCategoryBreakdown(payload.summary.categories || {}));
+  sanitizeResults.appendChild(renderExamples(payload.examples || []));
+  sanitizeResults.appendChild(renderSanitizedOutput(payload.sanitized_text));
+}
+
+function renderSanitizationSummary(summary) {
+  const grid = createElement("section", "summary-grid");
+  [
+    ["Total lines", summary.total_lines],
+    ["Changed lines", summary.transformed_lines],
+    ["Matches", summary.total_matches],
+  ].forEach(([label, value]) => {
+    const card = createElement("div", "metric-card");
+    card.appendChild(createElement("span", "metric-value", String(value)));
+    card.appendChild(createElement("span", "metric-label", label));
+    grid.appendChild(card);
+  });
+  return grid;
+}
+
+function renderCategoryBreakdown(categories) {
+  const panel = createElement("section", "source-panel");
+  const header = createElement("div", "panel-header");
+  header.appendChild(createElement("h3", null, "Detected categories"));
+  panel.appendChild(header);
+
+  const row = createElement("div", "source-row");
+  const entries = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) {
+    row.appendChild(createElement("span", "badge", "none"));
+  } else {
+    entries.forEach(([category, count]) => row.appendChild(createElement("span", "badge", `${category}: ${count}`)));
+  }
+  panel.appendChild(row);
+  return panel;
+}
+
+function renderExamples(examples) {
+  const panel = createElement("section", "insight-panel");
+  panel.appendChild(createElement("h3", "section-title", "Replacement examples"));
+  if (!examples.length) {
+    panel.appendChild(createElement("p", "muted", "No sensitive values were detected."));
+    return panel;
+  }
+
+  const list = createElement("div", "example-grid");
+  examples.forEach((example) => {
+    const card = createElement("article", "example-panel");
+    const header = createElement("div", "panel-header");
+    header.appendChild(createElement("span", "badge success", example.category));
+    card.appendChild(header);
+    card.appendChild(createElement("div", "mini-label", "Original preview"));
+    card.appendChild(createElement("code", "example-code", example.original_preview));
+    card.appendChild(createElement("div", "mini-label", "Replacement"));
+    card.appendChild(createElement("code", "example-code", example.replacement_preview));
+    list.appendChild(card);
+  });
+  panel.appendChild(list);
+  return panel;
+}
+
+function renderSanitizedOutput(sanitizedText) {
+  const panel = createElement("section", "output-block");
+  const header = createElement("div", "panel-header");
+  header.appendChild(createElement("h3", null, "Sanitized logs"));
+
+  const buttonRow = createElement("div", "inline-actions");
+  const copyButton = createElement("button", "secondary-button compact-button", "Copy");
+  copyButton.type = "button";
+  copyButton.addEventListener("click", () => copyText(sanitizedText, copyButton));
+
+  const moveButton = createElement("button", "primary-button compact-button", "Use in analyzer");
+  moveButton.type = "button";
+  moveButton.addEventListener("click", () => {
+    logInput.value = sanitizedText;
+    switchTab("analyzerTab");
+    setStatus(analysisStatus, "Sanitized logs copied into RCA Analyzer input.", false);
+  });
+
+  buttonRow.appendChild(copyButton);
+  buttonRow.appendChild(moveButton);
+  header.appendChild(buttonRow);
+  panel.appendChild(header);
+
+  const output = createElement("textarea", "text-output");
+  output.value = sanitizedText;
+  output.readOnly = true;
+  panel.appendChild(output);
+  return panel;
+}
+
 function renderList(items) {
   const list = createElement("ul");
   items.forEach((item) => list.appendChild(createElement("li", null, item)));
   return list;
 }
 
-function renderEmptyState(title = "No analysis yet", message = "Paste production-like logs and run analysis. The result will show source breakdown, dominant issue, grouped patterns, examples, and recommended L2 actions.") {
-  clear(analysisResults);
+function renderEmptyState(node, title, message) {
+  clear(node);
   const empty = createElement("div", "empty-state");
   empty.appendChild(createElement("h3", null, title));
   empty.appendChild(createElement("p", null, message));
-  analysisResults.appendChild(empty);
+  node.appendChild(empty);
 }
 
-function setStatus(message, isError) {
-  analysisStatus.textContent = message;
-  analysisStatus.classList.toggle("error", Boolean(isError));
+async function copyText(text, button) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      fallbackCopy(text);
+    }
+    const previous = button.textContent;
+    button.textContent = "Copied";
+    setTimeout(() => {
+      button.textContent = previous;
+    }, 1400);
+  } catch {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
+function setStatus(node, message, isError) {
+  node.textContent = message;
+  node.classList.toggle("error", Boolean(isError));
 }
 
 function readApiError(payload) {
