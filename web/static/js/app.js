@@ -1,10 +1,14 @@
 const logInput = document.getElementById("logInput");
+const analyzerDropzone = document.getElementById("analyzerDropzone");
+const analyzerFileInput = document.getElementById("analyzerFileInput");
 const analyzeButton = document.getElementById("analyzeButton");
 const clearAnalyzeButton = document.getElementById("clearAnalyzeButton");
 const maxGroupsInput = document.getElementById("maxGroups");
 const analysisStatus = document.getElementById("analysisStatus");
 const analysisResults = document.getElementById("analysisResults");
 const sanitizeInput = document.getElementById("sanitizeInput");
+const sanitizerDropzone = document.getElementById("sanitizerDropzone");
+const sanitizerFileInput = document.getElementById("sanitizerFileInput");
 const sanitizeButton = document.getElementById("sanitizeButton");
 const clearSanitizeButton = document.getElementById("clearSanitizeButton");
 const sanitizeMode = document.getElementById("sanitizeMode");
@@ -14,6 +18,7 @@ const sanitizeResults = document.getElementById("sanitizeResults");
 const tabButtons = document.querySelectorAll(".tab-button");
 const tabPanels = document.querySelectorAll(".tab-panel");
 const apiBaseUrl = window.location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
+const textAreas = [logInput, sanitizeInput];
 
 function createElement(tag, className, text) {
   const node = document.createElement(tag);
@@ -41,9 +46,18 @@ tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
 
+textAreas.forEach((textarea) => {
+  textarea.addEventListener("input", () => autoResizeTextarea(textarea));
+  autoResizeTextarea(textarea);
+});
+
+bindDropzone(analyzerDropzone, analyzerFileInput, logInput, analysisStatus, "Log file loaded into RCA Analyzer.");
+bindDropzone(sanitizerDropzone, sanitizerFileInput, sanitizeInput, sanitizeStatus, "Log file loaded into Log Sanitizer.");
+
 analyzeButton.addEventListener("click", analyzeLogs);
 clearAnalyzeButton.addEventListener("click", () => {
   logInput.value = "";
+  autoResizeTextarea(logInput);
   setStatus(analysisStatus, "Waiting for logs.", false);
   renderEmptyState(
     analysisResults,
@@ -55,6 +69,7 @@ clearAnalyzeButton.addEventListener("click", () => {
 sanitizeButton.addEventListener("click", sanitizeLogs);
 clearSanitizeButton.addEventListener("click", () => {
   sanitizeInput.value = "";
+  autoResizeTextarea(sanitizeInput);
   setStatus(sanitizeStatus, "Waiting for logs.", false);
   renderEmptyState(
     sanitizeResults,
@@ -345,6 +360,7 @@ function renderSanitizedOutput(sanitizedText) {
   moveButton.type = "button";
   moveButton.addEventListener("click", () => {
     logInput.value = sanitizedText;
+    autoResizeTextarea(logInput);
     switchTab("analyzerTab");
     setStatus(analysisStatus, "Sanitized logs copied into RCA Analyzer input.", false);
   });
@@ -358,6 +374,7 @@ function renderSanitizedOutput(sanitizedText) {
   output.value = sanitizedText;
   output.readOnly = true;
   panel.appendChild(output);
+  autoResizeTextarea(output);
   return panel;
 }
 
@@ -407,6 +424,68 @@ function fallbackCopy(text) {
 function setStatus(node, message, isError) {
   node.textContent = message;
   node.classList.toggle("error", Boolean(isError));
+}
+
+function autoResizeTextarea(textarea) {
+  textarea.style.height = "auto";
+  textarea.style.height = `${Math.max(textarea.scrollHeight, 280)}px`;
+}
+
+function bindDropzone(dropzone, fileInput, targetTextarea, statusNode, successMessage) {
+  dropzone.addEventListener("click", () => fileInput.click());
+  dropzone.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  fileInput.addEventListener("change", async () => {
+    const [file] = fileInput.files || [];
+    if (file) {
+      await loadFileIntoTextarea(file, targetTextarea, statusNode, successMessage);
+      fileInput.value = "";
+    }
+  });
+
+  ["dragenter", "dragover"].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+  });
+
+  ["dragleave", "dragend"].forEach((eventName) => {
+    dropzone.addEventListener(eventName, () => {
+      dropzone.classList.remove("dragover");
+    });
+  });
+
+  dropzone.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    dropzone.classList.remove("dragover");
+    const [file] = Array.from(event.dataTransfer?.files || []);
+    if (file) {
+      await loadFileIntoTextarea(file, targetTextarea, statusNode, successMessage);
+    }
+  });
+}
+
+async function loadFileIntoTextarea(file, textarea, statusNode, successMessage) {
+  const textLike = /\.(log|txt|json|jsonl|out|text)$/i.test(file.name) || file.type.startsWith("text/");
+  if (!textLike) {
+    setStatus(statusNode, "Unsupported file type. Use a .log or text-based log export.", true);
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    textarea.value = text;
+    autoResizeTextarea(textarea);
+    setStatus(statusNode, `${successMessage} ${file.name}`, false);
+  } catch {
+    setStatus(statusNode, "Failed to read the selected file.", true);
+  }
 }
 
 function readApiError(payload) {

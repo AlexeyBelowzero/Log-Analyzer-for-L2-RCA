@@ -3,23 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>L2 Incident Workbench</title>
-  <link rel="preconnect" href="https://images.unsplash.com">
+  <title>RCA Analyzer &amp; Log Sanitizer</title>
   <link rel="stylesheet" href="./static/css/app.css">
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div class="title-block">
-        <p class="eyebrow">L2 Incident Workbench</p>
-        <h1>RCA Analyzer and Log Sanitizer</h1>
-        <p class="subtitle">Analyze mixed production logs for root cause patterns, or sanitize sensitive data before sharing logs with vendors, AI tools, or incident channels.</p>
+        <p class="eyebrow">Local-first incident tool</p>
+        <h1>RCA Analyzer &amp; Log Sanitizer</h1>
+        <p class="subtitle">Analyze mixed logs for root cause patterns and prepare a safe-to-share version without visual noise or extra steps.</p>
       </div>
-      <img
-        class="topbar-image"
-        src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=720&q=70"
-        alt="Server racks"
-      >
     </header>
 
     <nav class="tab-nav" aria-label="Workbench modes">
@@ -36,6 +30,15 @@
               <h2>Raw logs</h2>
             </div>
             <p class="hint">Sample file: <code>samples/rca_mixed_test_logs.log</code></p>
+          </div>
+
+          <div id="analyzerDropzone" class="dropzone" tabindex="0" role="button" aria-describedby="analyzerDropzoneHint">
+            <input id="analyzerFileInput" type="file" accept=".log,.txt,.json,.jsonl,.out,.text" hidden>
+            <div class="dropzone-body">
+              <strong>Drop a log file here</strong>
+              <span>or click to choose a file</span>
+            </div>
+            <p id="analyzerDropzoneHint" class="dropzone-hint">Supports .log files and plain text log exports. The file content will be loaded into the field below.</p>
           </div>
 
           <label class="field-label" for="logInput">Paste logs</label>
@@ -89,6 +92,15 @@
               <h2>Sensitive logs</h2>
             </div>
             <p class="hint">Sample file: <code>samples/sanitizer_sensitive_test_logs.log</code></p>
+          </div>
+
+          <div id="sanitizerDropzone" class="dropzone" tabindex="0" role="button" aria-describedby="sanitizerDropzoneHint">
+            <input id="sanitizerFileInput" type="file" accept=".log,.txt,.json,.jsonl,.out,.text" hidden>
+            <div class="dropzone-body">
+              <strong>Drop a log file here</strong>
+              <span>or click to choose a file</span>
+            </div>
+            <p id="sanitizerDropzoneHint" class="dropzone-hint">Supports .log files and plain text log exports. Use this area like an attachment box and drop the file from your desktop.</p>
           </div>
 
           <label class="field-label" for="sanitizeInput">Paste logs to sanitize</label>
